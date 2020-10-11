@@ -3,10 +3,12 @@ package com.zhy.reflectinvoke.inject;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Parcelable;
 import android.text.TextUtils;
 import android.view.View;
 
 import java.lang.reflect.Field;
+import java.util.Arrays;
 
 public class InjectUtils {
 
@@ -47,10 +49,24 @@ public class InjectUtils {
                 String key = TextUtils.isEmpty(autowired.value()) ? field.getName() :
                         autowired.value();
                 if (extras.containsKey(key)) {
-                    Object object = extras.get(key);
+                    Object obj = extras.get(key);
                     // todo Parcelable数组类型不能直接设置，其他的都可以.
                     // 获得数组单个元素类型
-                    field.getType().getComponentType()
+                    Class<?> componentType = field.getType().getComponentType();
+                    //当前属性是数组并且是 Parcelable（子类）数组
+                    if (field.getType().isArray() &&
+                            Parcelable.class.isAssignableFrom(componentType)) {
+                        Object[] objs = (Object[]) obj;
+                        //创建对应类型的数组并由objs拷贝
+                        Object[] objects = Arrays.copyOf(objs, objs.length, (Class<? extends Object[]>) field.getType());
+                        obj = objects;
+                    }
+                    field.setAccessible(true);
+                    try {
+                        field.set(activity, obj);
+                    } catch (IllegalAccessException e) {
+                        e.printStackTrace();
+                    }
                 }
             }
         }
